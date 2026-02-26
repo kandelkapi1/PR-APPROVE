@@ -248,11 +248,6 @@ app.event('message', async ({ event, client }) => {
         shouldProcess = true;
     }
 
-    // Allowed channel
-    if (ALLOWED_CHANNEL_ID && channelId === ALLOWED_CHANNEL_ID) {
-        shouldProcess = true;
-    }
-
     if (!shouldProcess) {
         return;
     }
@@ -269,14 +264,13 @@ app.event('message', async ({ event, client }) => {
     console.log(`Processing PRs from:`);
     console.log(`  - Anyone who DMs the bot directly`);
     console.log(`  - Anyone in a group DM (mpim) with the bot`);
-    if (ALLOWED_CHANNEL_ID) {
-        console.log(`  - Anyone posting in channel: ${ALLOWED_CHANNEL_ID}`);
-        console.log(`  - Only members of channel ${ALLOWED_CHANNEL_ID} will be processed`);
-    }
     if (OWNER_USER_ID) {
         console.log(`  - Anyone who DMs you (${OWNER_USER_ID}) via Events API`);
     }
-    console.log(`\nBranch Restrictions:`);
-    console.log(`  - Only PRs targeting: PRODUCTION-DRAYOS, PRODUCTION, production, or branches with rc`);
+    console.log(`\nSecurity Restrictions:`);
+    if (ALLOWED_CHANNEL_ID) {
+        console.log(`  - Only members of channel ${ALLOWED_CHANNEL_ID} will be processed`);
+    }
+    console.log(`  - Only PRs targeting: PRODUCTION-DRAYOS, PRODUCTION, production, or branches with .rc`);
     console.log(`\n📋 Make sure you've configured your Slack app with the required event subscriptions!`);
 })();
