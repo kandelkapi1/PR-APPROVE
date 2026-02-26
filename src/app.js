@@ -47,10 +47,46 @@ function extractPRInfo(url) {
 }
 
 /**
+ * Check if a branch name is allowed for auto-approval
+ */
+function isAllowedBranch(branchName) {
+    const allowedBranches = ['PRODUCTION-DRAYOS', 'PRODUCTION', 'production'];
+    
+    // Check exact matches
+    if (allowedBranches.includes(branchName)) {
+        return true;
+    }
+    
+    // Check if branch contains .rc (release candidate)
+    if (branchName.includes('rc')) {
+        return true;
+    }
+    
+    return false;
+}
+
+/**
  * Approve a GitHub PR (no comment)
  */
 async function approvePR(owner, repo, pull_number) {
     try {
+        // First, fetch PR details to check the base branch
+        const { data: pr } = await octokit.pulls.get({
+            owner,
+            repo,
+            pull_number,
+        });
+        
+        const baseBranch = pr.base.ref;
+        
+        // Check if the base branch is allowed
+        if (!isAllowedBranch(baseBranch)) {
+            console.log(`Skipping PR #${pull_number}: base branch '${baseBranch}' is not allowed for auto-approval`);
+            return { success: false, error: `Base branch '${baseBranch}' is not allowed for auto-approval`, skipped: true };
+        }
+        
+        console.log(`Base branch '${baseBranch}' is allowed, approving PR #${pull_number}...`);
+        
         await octokit.pulls.createReview({
             owner,
             repo,
@@ -133,15 +169,21 @@ async function processMessageForPRs(message, channel, isUserDM = false) {
 
         const result = await approvePR(prInfo.owner, prInfo.repo, prInfo.pull_number);
 
-        // React with ✅ on success, ❌ on failure
-        await addReaction(
-            channel,
-            message.ts,
-            result.success ? 'white_check_mark' : 'x',
-            isUserDM
-        );
+        // React with ✅ on success, ⚠️ on skipped (wrong branch), ❌ on failure
+        let emoji = 'x';
+        let status = 'FAILED ❌';
+        
+        if (result.success) {
+            emoji = 'white_check_mark';
+            status = 'APPROVED ✅';
+        } else if (result.skipped) {
+            emoji = 'warning';
+            status = 'SKIPPED ⚠️ (branch not allowed)';
+        }
+        
+        await addReaction(channel, message.ts, emoji, isUserDM);
 
-        console.log(`PR ${prInfo.owner}/${prInfo.repo}#${prInfo.pull_number}: ${result.success ? 'APPROVED ✅' : 'FAILED ❌'}`);
+        console.log(`PR ${prInfo.owner}/${prInfo.repo}#${prInfo.pull_number}: ${status}`);
     }
 }
 
