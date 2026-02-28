@@ -159,6 +159,11 @@ async function processMessageForPRs(message, channel, isUserDM = false) {
         return;
     }
     
+    // Skip if no user ID (system message or edit)
+    if (!userId) {
+        return;
+    }
+    
     // Check if user is member of allowed channel - skip silently if not
     const isMember = await isUserInAllowedChannel(userId);
     if (!isMember) {
@@ -258,7 +263,20 @@ app.event('message', async ({ event, client }) => {
 // Start the app
 (async () => {
     const port = process.env.PORT || 3000;
-    await app.start(port);
+    
+    // Start Socket Mode connection to Slack
+    await app.start();
+
+    // Start HTTP server for Render health check
+    const http = require('http');
+    const server = http.createServer((req, res) => {
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.end('Slack PR Bot is running');
+    });
+    
+    server.listen(port, () => {
+        console.log(`⚡️ Health check server listening on port ${port}`);
+    });
 
     console.log(`⚡️ Slack PR Auto-Approve Bot is running!`);
     console.log(`Processing PRs from:`);
